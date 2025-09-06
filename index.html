@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PAC Entry Form</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f4f9; padding:20px; }
+    .form-container { max-width:500px; margin:auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+    h2 { text-align:center; color:#333; }
+    label { display:block; margin-top:10px; font-weight:bold; }
+    input { width:100%; padding:10px; margin-top:5px; border:1px solid #ddd; border-radius:5px; }
+    button { margin-top:15px; width:100%; padding:10px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#0056b3; }
+    .bulk-section { margin-top:20px; padding:15px; border:1px solid #ccc; border-radius:8px; background:#f9f9f9; }
+  </style>
+</head>
+<body>
+  <div class="form-container">
+    <h2>PAC Entry Form</h2>
+    
+    <!-- Single PAC entry -->
+    <label>PAC Number</label>
+    <input type="text" id="pacNo" required>
+    <button onclick="saveData()">Submit</button>
+
+    <!-- Bulk upload section -->
+    <div class="bulk-section">
+      <h3>Bulk Upload (Excel)</h3>
+      <input type="file" id="excelFile" accept=".xlsx, .xls">
+      <button onclick="uploadExcel()">Upload & Save</button>
+    </div>
+  </div>
+
+  <!-- SheetJS for Excel reading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+    const firebaseConfig = { 
+      apiKey: "AIzaSyCE2_x5xvW3wCsOx6jo9-ZhNOhgWm86cPY",
+      authDomain: "mrsamrat08.firebaseapp.com",
+      projectId: "mrsamrat08",
+      storageBucket: "mrsamrat08.firebasestorage.app",
+      messagingSenderId: "525481767881",
+      appId: "1:525481767881:web:6fd53162b242709890ae18",
+      measurementId: "G-989QEQ54X4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 🔹 Single entry
+    async function saveData() {
+      let pacNo = document.getElementById("pacNo").value.trim();
+      let uclNo = "UCSC_WB_NO050665"; 
+
+      if (!pacNo) {
+        alert("Please enter PAC Number!");
+        return;
+      }
+
+      let now = new Date();
+      let entryDate = now.toISOString().split("T")[0]; 
+      let entryTime = now.toLocaleTimeString();
+
+      await setDoc(doc(db, "pac_entries", pacNo), {
+        entryDate: entryDate,
+        entryTime: entryTime,
+        uclNo: uclNo
+      });
+
+      alert("PAC Entry Saved Successfully!");
+      document.getElementById("pacNo").value = "";
+    }
+
+    window.saveData = saveData;
+
+    // 🔹 Bulk upload
+    async function uploadExcel() {
+      const fileInput = document.getElementById("excelFile");
+      if (!fileInput.files.length) {
+        alert("Please select an Excel file!");
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = async function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        let uclNo = "UCSC_WB_NO050665";
+        let savedCount = 0;
+
+        for (let i = 1; i < rows.length; i++) { // skipping header row
+          let pacNo = rows[i][0]; // first column = PAC number
+          if (!pacNo) continue;
+
+          let now = new Date();
+          let entryDate = now.toISOString().split("T")[0]; 
+          let entryTime = now.toLocaleTimeString();
+
+          await setDoc(doc(db, "pac_entries", pacNo.toString()), {
+            entryDate: entryDate,
+            entryTime: entryTime,
+            uclNo: uclNo
+          });
+
+          savedCount++;
+        }
+
+        alert(`✅ Bulk upload completed. Saved ${savedCount} PAC entries.`);
+        fileInput.value = "";
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    window.uploadExcel = uploadExcel;
+  </script>
+</body>
+</html>
