@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PAC Entries</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f4f9; padding:20px; }
+    h2 { text-align:center; color:#333; margin-bottom:20px; }
+    .filter-box { text-align:center; margin-bottom:20px; }
+    input[type="date"] { padding:8px; border:1px solid #ccc; border-radius:5px; }
+    table { width:100%; border-collapse: collapse; background:#fff; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
+    th, td { padding:12px; border:1px solid #ddd; text-align:center; }
+    th { background:#007bff; color:#fff; }
+    button { padding:6px 12px; border:none; border-radius:5px; cursor:pointer; }
+    .copy-btn { background:#007bff; color:#fff; }
+    .copied-btn { background:#28a745; color:#fff; } /* green when copied */
+  </style>
+</head>
+<body>
+  <h2>Saved PAC Entries</h2>
+
+  <!-- 🔹 Date Filter -->
+  <div class="filter-box">
+    <label><strong>Select Date:</strong></label>
+    <input type="date" id="filterDate" onchange="loadData()">
+  </div>
+
+  <table id="pacTable">
+    <thead>
+      <tr>
+        <th>UCL No</th>
+        <th>PAC Code</th>
+        <th>Date</th>
+        <th>Time</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <script>
+    // 🔹 Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCE2_x5xvW3wCsOx6jo9-ZhNOhgWm86cPY",
+      authDomain: "mrsamrat08.firebaseapp.com",
+      projectId: "mrsamrat08",
+      storageBucket: "mrsamrat08.firebasestorage.app",
+      messagingSenderId: "525481767881",
+      appId: "1:525481767881:web:6fd53162b242709890ae18",
+      measurementId: "G-989QEQ54X4"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Load table data
+    async function loadData() {
+      const tbody = document.getElementById("tableBody");
+      tbody.innerHTML = "";
+
+      const selectedDate = document.getElementById("filterDate").value;
+
+      let query = db.collection("pac_entries");
+      if (selectedDate) {
+        query = query.where("entryDate", "==", selectedDate);
+      }
+
+      const snapshot = await query.get();
+
+      if (snapshot.empty) {
+        tbody.innerHTML = `<tr><td colspan="5">No entries found for ${selectedDate || "any date"}.</td></tr>`;
+        return;
+      }
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${data.uclNo}</td>
+          <td>${doc.id}</td>
+          <td>${data.entryDate}</td>
+          <td>${data.entryTime}</td>
+          <td>
+            <button 
+              class="${data.copied ? 'copied-btn' : 'copy-btn'}" 
+              onclick="copyCode('${doc.id}')"
+              id="btn-${doc.id}">
+              ${data.copied ? 'Copied' : 'Copy'}
+            </button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Copy function
+    async function copyCode(pacNo) {
+      await navigator.clipboard.writeText(pacNo);
+
+      // Update Firestore copied flag
+      await db.collection("pac_entries").doc(pacNo).update({
+        copied: true
+      });
+
+      // Change button instantly
+      const btn = document.getElementById("btn-" + pacNo);
+      if (btn) {
+        btn.classList.remove("copy-btn");
+        btn.classList.add("copied-btn");
+        btn.innerText = "Copied";
+      }
+    }
+
+    // Run when page loads
+    loadData();
+  </script>
+</body>
+</html>
